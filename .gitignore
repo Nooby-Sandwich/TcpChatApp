@@ -1,0 +1,14 @@
+# Build artifacts
+bin/
+obj/
+*.log
+*.userprefs
+
+# Visual Studio files
+*.suo
+*.user
+*.vs/
+*.sln.cache
+
+# macOS/Linux build
+publish/
