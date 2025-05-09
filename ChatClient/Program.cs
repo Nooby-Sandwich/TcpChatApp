@@ -1,31 +1,48 @@
-﻿using System.Net.Sockets;
+﻿using System;
+using System.Net.Sockets;
+using System.Net.Security;
 using System.Text;
 using System.Threading.Tasks;
+using System.Security.Cryptography.X509Certificates;
 
 Console.InputEncoding = Encoding.UTF8;
 Console.OutputEncoding = Encoding.UTF8;
 
-TcpClient client = new TcpClient();
+TcpClient client = new();
 
 try
 {
     await client.ConnectAsync("127.0.0.1", 5000);
     Console.WriteLine("Connected to chat server!");
 
-    var stream = client.GetStream();
+    var sslStream = new SslStream(
+        client.GetStream(),
+        false,
+        ValidateServerCertificate
+    );
 
-    // Set username
+    try
+    {
+        await sslStream.AuthenticateAsClientAsync("localhost");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("SSL Authentication failed: " + ex.Message);
+        client.Close();
+        return;
+    }
+
     Console.Write("Enter your username: ");
     string? username = Console.ReadLine();
     if (string.IsNullOrWhiteSpace(username))
         username = "Anonymous";
 
     byte[] loginData = Encoding.UTF8.GetBytes(username);
-    await stream.WriteAsync(loginData, 0, loginData.Length);
+    await sslStream.WriteAsync(loginData, 0, loginData.Length);
 
     Console.WriteLine("Type your message or use /help for commands.");
 
-    _ = ReadMessagesAsync(stream);
+    _ = ReadMessagesAsync(sslStream);
 
     while (true)
     {
@@ -34,12 +51,12 @@ try
 
         if (input.StartsWith('/'))
         {
-            await HandleCommandAsync(stream, input, username);
+            await HandleCommandAsync(sslStream, input, username);
         }
         else
         {
             byte[] data = Encoding.UTF8.GetBytes(input);
-            await stream.WriteAsync(data, 0, data.Length);
+            await sslStream.WriteAsync(data, 0, data.Length);
         }
     }
 }
@@ -52,7 +69,23 @@ finally
     client.Close();
 }
 
-async Task HandleCommandAsync(NetworkStream stream, string command, string username)
+// Accept any certificate (for development only)
+static bool ValidateServerCertificate(
+    object sender,
+    X509Certificate certificate,
+    X509Chain chain,
+    SslPolicyErrors sslPolicyErrors)
+{
+    if (sslPolicyErrors == SslPolicyErrors.None)
+        return true;
+
+    Console.WriteLine("Certificate error: " + sslPolicyErrors);
+
+    // For development only: Accept any certificate
+    return true;
+}
+
+async Task HandleCommandAsync(SslStream stream, string command, string username)
 {
     string[] parts = command.Split(' ', 2);
     string cmd = parts[0].ToLower();
@@ -98,7 +131,7 @@ async Task HandleCommandAsync(NetworkStream stream, string command, string usern
     }
 }
 
-async Task ReadMessagesAsync(NetworkStream stream)
+async Task ReadMessagesAsync(SslStream stream)
 {
     byte[] buffer = new byte[1024];
 
@@ -120,7 +153,7 @@ async Task ReadMessagesAsync(NetworkStream stream)
             else if (message.StartsWith("/users "))
             {
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("Connected users: " + message.Substring(7));
+                Console.WriteLine(message.Substring(7));
                 Console.ResetColor();
             }
             else

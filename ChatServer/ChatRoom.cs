@@ -1,27 +1,35 @@
 ﻿using System.Collections.Concurrent;
 using System.Net.Sockets;
 
-public static class ChatRoom
+namespace ChatServer
 {
-    private static readonly ConcurrentDictionary<TcpClient, string> _clients = new();
-
-    public static void AddClient(TcpClient client, string username)
+    public static class ChatRoom
     {
-        _clients.TryAdd(client, username);
-    }
+        private static readonly ConcurrentDictionary<TcpClient, (string Username, ClientHandler Handler)> Clients = new();
 
-    public static bool RemoveClient(TcpClient client)
-    {
-        return _clients.TryRemove(client, out _);
-    }
+        public static void AddClient(TcpClient client, string username, ClientHandler handler)
+        {
+            Clients.TryAdd(client, (username, handler));
+        }
 
-    public static IEnumerable<TcpClient> GetClients()
-    {
-        return _clients.Keys;
-    }
+        public static bool RemoveClient(TcpClient client)
+        {
+            return Clients.TryRemove(client, out _);
+        }
 
-    public static string GetUsername(TcpClient client)
-    {
-        return _clients.TryGetValue(client, out var username) ? username : "Unknown";
+        public static IEnumerable<TcpClient> GetClients()
+        {
+            return Clients.Keys;
+        }
+
+        public static string GetUsername(TcpClient client)
+        {
+            return Clients.TryGetValue(client, out var entry) ? entry.Username : "Unknown";
+        }
+
+        public static ClientHandler GetHandler(TcpClient client)
+        {
+            return Clients.TryGetValue(client, out var entry) ? entry.Handler : null!;
+        }
     }
 }

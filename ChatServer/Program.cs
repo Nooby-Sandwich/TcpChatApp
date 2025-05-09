@@ -1,11 +1,23 @@
-﻿using System;
+﻿using Google.Cloud.Firestore;
+using Google.Apis.Auth.OAuth2;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using ChatServer;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+
+// Initialize Firebase
+string projectId = "tcp-chat-app-8273b";
+string firebaseKeyPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tcp-chat-app-8273b-firebase-adminsdk-fbsvc-cbceaaa0a8.json");
+FirebaseLogger.Initialize(projectId, firebaseKeyPath);
 
 Console.WriteLine("Starting TCP Chat Server...");
+
+// Load SSL certificate
+var certificate = new X509Certificate2("chatserver.pfx", "password");
 
 var listener = new TcpListener(IPAddress.Any, 5000);
 listener.Start();
@@ -19,9 +31,20 @@ _ = CleanUpInactiveClientsAsync(handlers);
 while (true)
 {
     var client = await listener.AcceptTcpClientAsync();
-    var handler = new ClientHandler(client, OnClientDisconnected);
-    handlers.Add(handler);
-    _ = handler.Start(); // Start handling the client
+    var sslStream = new SslStream(client.GetStream(), false);
+
+    try
+    {
+        await sslStream.AuthenticateAsServerAsync(certificate);
+        var handler = new ClientHandler(client, sslStream, OnClientDisconnected);
+        handlers.Add(handler);
+        _ = handler.Start();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("SSL Error: " + ex.Message);
+        client.Close();
+    }
 }
 
 // Callback when a client disconnects
@@ -45,7 +68,7 @@ async Task CleanUpInactiveClientsAsync(List<ClientHandler> handlers)
             if ((now - handler.LastActivityTime).TotalMinutes > 10) // 10-minute timeout
             {
                 Console.WriteLine($"Disconnecting inactive user: {handler.Username}");
-                handler.Disconnect(); // Call a safe disconnect method
+                handler.Disconnect();
                 handlers.Remove(handler);
             }
         }

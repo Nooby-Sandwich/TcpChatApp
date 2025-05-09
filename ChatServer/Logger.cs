@@ -12,9 +12,9 @@ public static class Logger
         File.AppendAllText(LogPath, line + Environment.NewLine);
     }
 
-    public static void LogPrivateMessage(string sender, string recipient, string message)
+    public static void LogPrivateMessage(string sender, string receiver, string message)
     {
-        string line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] PM: {sender} -> {recipient}: {message}";
+        string line = $"[PM] {sender} -> {receiver}: {message}";
         Console.WriteLine(line);
         File.AppendAllText(LogPath, line + Environment.NewLine);
     }

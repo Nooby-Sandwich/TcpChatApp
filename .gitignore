@@ -1,14 +1,18 @@
 # Build artifacts
 bin/
 obj/
-*.log
-*.userprefs
 
-# Visual Studio files
-*.suo
-*.user
-*.vs/
-*.sln.cache
+# Sensitive files (you can remove if you're using them locally)
+*.pfx
+*.json
 
 # macOS/Linux build
 publish/
+
+# IDE files
+.vs/
+*.userprefs
+*.suo
+*.sln.cache
+*.swp
+*.lock
